@@ -32,7 +32,7 @@ fn main() -> Result<(), anyhow::Error> {
     while !rl.window_should_close() {
         let mut d = rl.begin_drawing(&thread);
         d.clear_background(Color::BLACK);
-        
+
         while let Ok(audio_buffer) = rx.try_recv() {
             sound_values = audio_buffer;
         }
@@ -69,76 +69,79 @@ fn setup_audio(tx: Sender<[f32; MAX_SAMPLES]>) -> Result<(), anyhow::Error> {
     // Use the default host for working with audio devices.
     let host = cpal::default_host();
 
-    // Setup the default input device and stream with the default input config.
-    let device = host
-        .default_input_device()
-        .expect("Failed to get default input device");
-    println!("Default input device: {}", device.name()?);
-    let mut supported_formats_range = device
-        .supported_input_formats()
-        .expect("error while querying formats");
-    let format = supported_formats_range
-        .next()
-        .expect("no supported format?!")
-        .with_max_sample_rate();
-    eprintln!("input format was {:?}", format);
-
     let event_loop = host.event_loop();
 
-    let stream_id = event_loop.build_input_stream(&device, &format).unwrap();
-
-    event_loop
-        .play_stream(stream_id)
-        .expect("failed to play_stream");
-
     thread::spawn(move || {
-        event_loop.run(move |stream_id, stream_result| {
-            let stream_data = match stream_result {
-                Ok(data) => data,
-                Err(err) => {
-                    eprintln!("an error occurred on stream {:?}: {}", stream_id, err);
-                    return;
-                }
-            };
+        loop {
+            // Setup the default input device and stream with the default input config.
+            let device = host
+                .default_input_device()
+                .expect("Failed to get default input device");
+            println!("Default input device: {}", device.name().expect("failed to get device name"));
+            let mut supported_formats_range = device
+                .supported_input_formats()
+                .expect("error while querying formats");
+            let format = supported_formats_range
+                .next()
+                .expect("no supported format?!")
+                .with_max_sample_rate();
+            eprintln!("input format was {:?}", format);
 
-            let mut result: [f32; MAX_SAMPLES] = [0.0; MAX_SAMPLES];
-            let mut index = 0;
-            match stream_data {
-                StreamData::Input {
-                    buffer: UnknownTypeInputBuffer::U16(buffer),
-                } => {
-                    for elem in buffer.iter() {
-                        if index < MAX_SAMPLES {
-                            result[index] = *elem as f32;
-                            index = index + 1;
-                        }
-                    }
-                }
-                StreamData::Input {
-                    buffer: UnknownTypeInputBuffer::I16(buffer),
-                } => {
-                    for elem in buffer.iter() {
-                        if index < MAX_SAMPLES {
-                            result[index] = *elem as f32;
-                            index = index + 1;
-                        }
-                    }
-                }
-                StreamData::Input {
-                    buffer: UnknownTypeInputBuffer::F32(buffer),
-                } => {
-                    for elem in buffer.iter() {
-                        if index < MAX_SAMPLES {
-                            result[index] = *elem;
-                            index = index + 1;
-                        }
-                    }
-                }
-                _ => (),
-            }
+            let stream_id = event_loop
+                .build_input_stream(&device, &format)
+                .expect("failed to build input stream");
 
-            tx.send(result).expect("Failed to send audio buffer data");
-        })
+            event_loop
+                .play_stream(stream_id)
+                .expect("failed to play_stream");
+            event_loop.run(move |stream_id, stream_result| {
+                let stream_data = match stream_result {
+                    Ok(data) => data,
+                    Err(err) => {
+                        eprintln!("an error occurred on stream {:?}: {}", stream_id, err);
+                        return;
+                    }
+                };
+
+                let mut result: [f32; MAX_SAMPLES] = [0.0; MAX_SAMPLES];
+                let mut index = 0;
+                match stream_data {
+                    StreamData::Input {
+                        buffer: UnknownTypeInputBuffer::U16(buffer),
+                    } => {
+                        for elem in buffer.iter() {
+                            if index < MAX_SAMPLES {
+                                result[index] = *elem as f32;
+                                index = index + 1;
+                            }
+                        }
+                    }
+                    StreamData::Input {
+                        buffer: UnknownTypeInputBuffer::I16(buffer),
+                    } => {
+                        for elem in buffer.iter() {
+                            if index < MAX_SAMPLES {
+                                result[index] = *elem as f32;
+                                index = index + 1;
+                            }
+                        }
+                    }
+                    StreamData::Input {
+                        buffer: UnknownTypeInputBuffer::F32(buffer),
+                    } => {
+                        for elem in buffer.iter() {
+                            if index < MAX_SAMPLES {
+                                result[index] = *elem;
+                                index = index + 1;
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+
+                tx.send(result).expect("Failed to send audio buffer data");
+            });
+        }
     });
     Ok(())
 }

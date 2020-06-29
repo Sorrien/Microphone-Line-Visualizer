@@ -12,7 +12,7 @@ use std::sync::{
 };
 use std::thread;
 
-const MAX_SAMPLES: usize = 128;
+const MAX_SAMPLES: usize = 960;
 
 fn main() -> Result<(), anyhow::Error> {
     let (tx, rx): (Sender<[f32; MAX_SAMPLES]>, Receiver<[f32; MAX_SAMPLES]>) = mpsc::channel();
@@ -26,7 +26,7 @@ fn main() -> Result<(), anyhow::Error> {
         .title("Audio Visualizer")
         .build();
 
-    rl.set_target_fps(30);
+    rl.set_target_fps(60);
     let mut sound_values = [0.0; MAX_SAMPLES];
 
     while !rl.window_should_close() {
@@ -39,6 +39,7 @@ fn main() -> Result<(), anyhow::Error> {
         if sound_values.iter().any(|&x| x > 0.0) {
             update_lines(&mut d, &sound_values, screen_width, screen_height);
         }
+        d.draw_fps(0, 0);
     }
 
     Ok(())
@@ -77,7 +78,10 @@ fn setup_audio(tx: Sender<[f32; MAX_SAMPLES]>) -> Result<(), anyhow::Error> {
             let device = host
                 .default_input_device()
                 .expect("Failed to get default input device");
-            println!("Default input device: {}", device.name().expect("failed to get device name"));
+            println!(
+                "Default input device: {}",
+                device.name().expect("failed to get device name")
+            );
             let mut supported_formats_range = device
                 .supported_input_formats()
                 .expect("error while querying formats");
@@ -129,6 +133,11 @@ fn setup_audio(tx: Sender<[f32; MAX_SAMPLES]>) -> Result<(), anyhow::Error> {
                     StreamData::Input {
                         buffer: UnknownTypeInputBuffer::F32(buffer),
                     } => {
+                        eprintln!(
+                            "buffer length {} format sample rate: {:?}",
+                            buffer.len(),
+                            format.sample_rate
+                        );
                         for elem in buffer.iter() {
                             if index < MAX_SAMPLES {
                                 result[index] = *elem;

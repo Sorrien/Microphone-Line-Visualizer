@@ -6,9 +6,9 @@ use cpal::{
     StreamData, UnknownTypeInputBuffer,
 };
 use raylib::prelude::*;
-use std::sync::{
-    mpsc,
-    mpsc::{Receiver, Sender},
+use std::sync::mpsc::{
+    self,
+    Receiver, Sender,
 };
 use std::thread;
 

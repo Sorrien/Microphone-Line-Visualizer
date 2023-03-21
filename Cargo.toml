@@ -5,6 +5,7 @@ authors = ["Sorrien"]
 edition = "2018"
 
 [dependencies]
-cpal = "0.11.0"
-raylib = "1.0.1"
-anyhow = "1.0.31"
+cpal = "0.15.0"
+raylib = "3.7.0"
+anyhow = "1.0.62"
+ringbuf = "0.3.2"
